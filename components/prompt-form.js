@@ -25,7 +25,7 @@ export default function PromptForm({
 
   return (
     <form onSubmit={handleSubmit} className="animate-in fade-in duration-700">
-      <Message sender="replicate" isSameSender>
+      <Message sender="gemini" isSameSender>
         <label htmlFor="prompt-input">
           {isFirstPrompt
             ? "What should we change?"

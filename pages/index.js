@@ -23,23 +23,23 @@ function TokenModal({ onTokenSet }) {
         onSubmit={e => {
           e.preventDefault();
           if (token) {
-            localStorage.setItem("replicateApiToken", token);
+            localStorage.setItem("googleApiKey", token);
             onTokenSet(token);
           }
         }}
         aria-modal="true"
         role="dialog"
       >
-        <h2 className="text-2xl font-bold mb-2 text-center">Enter your Replicate API token</h2>
+        <h2 className="text-2xl font-bold mb-2 text-center">Enter your Google Generative AI API key</h2>
         <p className="mb-4 text-center text-gray-600">
-          Get a free token at {" "}
+          Create or view your API key at {" "}
           <a
-            href="https://replicate.com/account/api-tokens?new-token-name=paint-by-text-kontext"
+            href="https://aistudio.google.com/app/apikey"
             target="_blank"
             rel="noopener noreferrer"
             className="underline text-blue-600"
           >
-            replicate.com/account/api-tokens
+            aistudio.google.com/app/apikey
           </a>
         </p>
         <input
@@ -47,7 +47,7 @@ function TokenModal({ onTokenSet }) {
           type="text"
           value={token}
           onChange={e => setToken(e.target.value)}
-          placeholder="r8_..."
+          placeholder="AIza..."
           required
           autoFocus
         />
@@ -61,7 +61,7 @@ function TokenModal({ onTokenSet }) {
 
 export default function Home() {
   const [events, setEvents] = useState([]);
-  const [predictions, setPredictions] = useState([]);
+  const [predictions, setPredictions] = useState([]); // legacy; no longer used for AI SDK flow
   const [error, setError] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [seed] = useState(getRandomSeed());
@@ -72,7 +72,7 @@ export default function Home() {
   // set the initial image from a random seed
   useEffect(() => {
     setEvents([{ image: seed.image }]);
-    const storedToken = localStorage.getItem("replicateApiToken");
+    const storedToken = localStorage.getItem("googleApiKey");
     if (storedToken) setApiToken(storedToken);
     // Removed setShowTokenForm
   }, [seed.image]);
@@ -107,46 +107,29 @@ export default function Home() {
       input_image: lastImage,
     };
 
-    const response = await fetch("/api/predictions", {
+    // New AI SDK flow: generate the image in a single request
+    const response = await fetch("/api/generate", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-replicate-api-token": apiToken,
+        "x-google-api-key": apiToken,
       },
       body: JSON.stringify(body),
     });
-    let prediction = await response.json();
 
-    if (response.status !== 201) {
-      setError(prediction.detail);
+    const data = await response.json();
+
+    if (!response.ok) {
+      setError(data?.detail || "Image generation failed");
+      setIsProcessing(false);
       return;
     }
 
-    while (
-      prediction.status !== "succeeded" &&
-      prediction.status !== "failed"
-    ) {
-      await sleep(500);
-      const response = await fetch("/api/predictions/" + prediction.id, {
-        headers: { "x-replicate-api-token": apiToken },
-      });
-      prediction = await response.json();
-      if (response.status !== 200) {
-        setError(prediction.detail);
-        return;
-      }
-
-      // just for bookkeeping
-      setPredictions(predictions.concat([prediction]));
-
-      if (prediction.status === "succeeded") {
-        setEvents(
-          myEvents.concat([
-            { image: prediction.output },
-          ])
-        );
-      }
-    }
+    setEvents(
+      myEvents.concat([
+        { image: data.image },
+      ])
+    );
 
     setIsProcessing(false);
   };
@@ -165,7 +148,7 @@ export default function Home() {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem("replicateApiToken");
+    localStorage.removeItem("googleApiKey");
     setApiToken(null);
     // Removed setShowTokenForm
   };

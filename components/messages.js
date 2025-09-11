@@ -19,7 +19,7 @@ export default function Messages({ events, isProcessing, onUndo }) {
         if (ev.image) {
           return (
             <Fragment key={"image-" + index}>
-              <Message sender="replicate" shouldFillWidth>
+              <Message sender="gemini" shouldFillWidth>
                 <Image
                   alt={
                     ev.prompt
@@ -49,7 +49,7 @@ export default function Messages({ events, isProcessing, onUndo }) {
               </Message>
 
               {(isProcessing || index < events.length - 1) && (
-                <Message sender="replicate" isSameSender>
+                <Message sender="gemini" isSameSender>
                   {index === 0
                     ? "What should we change?"
                     : "What should we change now?"}
@@ -69,7 +69,7 @@ export default function Messages({ events, isProcessing, onUndo }) {
       })}
 
       {isProcessing && (
-        <Message sender="replicate">
+        <Message sender="gemini">
           <PulseLoader color="#999" size={7} />
         </Message>
       )}
