@@ -13,6 +13,8 @@
   "dependencies": {
     "@ai-sdk/google": "^2.0.13",
     "@ai-sdk/replicate": "^1.0.8",
+    "@google/genai": "^1.19.0",
+    "@google/generative-ai": "^0.24.1",
     "@vercel/analytics": "^0.1.8",
     "ai": "^5.0.39",
     "lodash": "^4.17.21",

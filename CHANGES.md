@@ -16,3 +16,11 @@ This document tracks notable changes and key decisions made while updating the p
 - Change: Read Google image model from env var `GOOGLE_IMAGE_MODEL` (default `imagen-3.0-generate-002`). Added to `.env.example`.
 
 - Open Question: If image-to-image editing must be supported via Gemini, we will either wait for AI SDK to expose editing inputs for Google Images, or add a direct Google Images API call (outside AI SDK) that accepts a base image/mask.
+
+## 2025-09-11
+
+- Refactor: Use Gemini via the official Google AI SDK exclusively for image generation.
+  - API: `pages/api/generate.js` uses `@google/generative-ai` and calls `generateContent` with parts: optional base image (`inlineData`) + prompt text, then returns the first image part from the response.
+  - Model: default `models/gemini-2.5-flash-image`, configurable via `GOOGLE_IMAGE_MODEL`.
+  - Vercel AI SDK: kept as a dependency for future use, but no longer used in the code path.
+  - UI: continues to send the last image as a data URL (`input_image`), enabling image-to-image editing.

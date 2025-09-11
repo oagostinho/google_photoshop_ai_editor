@@ -1,5 +1,4 @@
-import { experimental_generateImage as generateImage } from "ai";
-import { createGoogleGenerativeAI } from "@ai-sdk/google";
+import { GoogleGenAI, createPartFromBase64, Modality } from "@google/genai";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -29,35 +28,49 @@ export default async function handler(req, res) {
   }
 
   try {
-    const google = createGoogleGenerativeAI({ apiKey: token });
+    // Official Google GenAI SDK (Gemini) image generation, supports image-to-image
+    let envModel = (process.env.GOOGLE_IMAGE_MODEL || "gemini-2.5-flash-image-preview").trim();
+    // Map deprecated/non-preview alias to preview model name
+    if (envModel === "gemini-2.5-flash-image" || envModel === "models/gemini-2.5-flash-image") {
+      envModel = "gemini-2.5-flash-image-preview";
+    }
+    const model = envModel.startsWith("models/") ? envModel : envModel;
 
-    // Prefer Imagen 3 for image generation via Google AI Studio (v1beta predict)
-    const envModel = process.env.GOOGLE_IMAGE_MODEL;
-    const fallbackModel = "imagen-3.0-generate-002";
-    const modelId = !envModel || envModel.toLowerCase().startsWith("gemini")
-      ? fallbackModel
-      : envModel;
+    const ai = new GoogleGenAI({ apiKey: token, apiVersion: "v1alpha" });
 
-    const result = await generateImage({
-      model: google.image(modelId),
-      prompt,
-      n: n || 1,
-      aspectRatio: aspect_ratio || "1:1",
-      providerOptions: {
-        google: {
-          personGeneration: person_generation, // 'dont_allow' | 'allow_adult' | 'allow_all'
-        },
-      },
+    // Build contents: array of parts (auto-wrapped as user content)
+    const contents = [];
+    if (typeof input_image === "string" && input_image.startsWith("data:")) {
+      const m = input_image.match(/^data:([^;]+);base64,(.*)$/);
+      if (m) {
+        contents.push(createPartFromBase64(m[2], m[1]));
+      }
+    }
+    contents.push({ text: prompt });
+
+    const genConfig = { responseModalities: [Modality.IMAGE] };
+    if (n) genConfig.candidateCount = Math.max(1, Math.min(4, Number(n) || 1));
+
+    const response = await ai.models.generateContent({
+      model,
+      contents,
+      config: genConfig,
     });
 
-    const { image } = result;
+    // Find the first inlineData image part
+    const candidate = (response.candidates || [])[0];
+    const imagePart = candidate?.content?.parts?.find?.(
+      (p) => p?.inlineData && /^image\//.test(p.inlineData.mimeType || "") && typeof p.inlineData.data === "string"
+    );
+    if (!imagePart) {
+      const dbg = response.text || "No image returned by Gemini";
+      throw new Error(typeof dbg === "string" ? dbg : "No image returned by Gemini");
+    }
 
-    // Convert image bytes to a data URL for client-side display
-    const base64 = Buffer.from(image.uint8Array).toString("base64");
-    const mime = image.mimeType || "image/png";
-    const dataUrl = `data:${mime};base64,${base64}`;
-
+    const mime = imagePart.inlineData.mimeType || "image/png";
+    const dataUrl = `data:${mime};base64,${imagePart.inlineData.data}`;
     res.status(200).json({ image: dataUrl });
+    return;
   } catch (err) {
     console.error("AI SDK (Google) image generation failed:", err);
     const detail =
